@@ -1,28 +1,28 @@
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
-use web_sys::{HtmlCanvasElement, CanvasRenderingContext2d};
+use serde_json::Value;
 
-#[wasm_bindgen(start)]
-pub fn start() -> Result<(), JsValue> {
-    console_error_panic_hook::set_once();
-    let window = web_sys::window().ok_or("no window")?;
-    let document = window.document().ok_or("no document")?;
-    let canvas: HtmlCanvasElement = document.get_element_by_id("scene").ok_or("#scene missing")?.dyn_into()?;
-    let context = canvas.get_context("2d")?;
-    let c = match context {
-        Some(c) => c,
-        None => return Err("canvas context not found".into()),
-    };
-    let ctx: CanvasRenderingContext2d = c.dyn_into()?;
-    let w = canvas.width() as f64; let h = canvas.height() as f64;
-    ctx.set_fill_style_str("#07111f");
-    ctx.fill_rect(0.0, 0.0, w, h);
-    ctx.set_fill_style_str("#4d9cff");
-    ctx.fill_rect(100.0, 100.0, w - 200.0, h - 200.0);
-    ctx.set_fill_style_str("#e8f3ff");
-    ctx.set_font("30px system-ui");
-    ctx.set_text_align("center");
-    ctx.set_fill_style_str("#ffffff");
-    let _ = ctx.fill_text("Spatial Vision - Minimal Test", w / 2.0, h / 2.0);
-    Ok(())
+#[wasm_bindgen]
+pub fn detect_pinch(landmarks_json: &str) -> Result<String, JsValue> {
+    match serde_json::from_str::<Value>(landmarks_json) {
+        Ok(Value::Array(landmarks_raw)) => {
+            eprintln!("Received {} landmarks", landmarks_raw.len());
+            if landmarks_raw.len() < 2 {
+                return Err(JsValue::from_str("Need 2 hands"));
+            }
+
+            let left_index = landmarks_raw.get(0).and_then(|h| h.as_array()).and_then(|a| a.get(8)).and_then(|v| v.as_f64()).unwrap_or(0.5);
+            let left_thumb = landmarks_raw.get(0).and_then(|h| h.as_array()).and_then(|a| a.get(4)).and_then(|v| v.as_f64()).unwrap_or(0.5);
+            let right_index = landmarks_raw.get(1).and_then(|h| h.as_array()).and_then(|a| a.get(8)).and_then(|v| v.as_f64()).unwrap_or(0.5);
+            let right_thumb = landmarks_raw.get(1).and_then(|h| h.as_array()).and_then(|a| a.get(4)).and_then(|v| v.as_f64()).unwrap_or(0.5);
+
+            let left_sq = (left_index - left_thumb).powi(2);
+            let right_sq = (right_index - right_thumb).powi(2);
+            let min_dist = (left_sq.min(right_sq)).sqrt();
+            let is_pinching = min_dist < 0.05;
+            let strength = (1.0 - (min_dist / 0.15).min(1.0)) as f64;
+
+            Ok(format!("{{\"isPinching\":{},\"strength\":{}", is_pinching, strength))
+        }
+        _ => Err(JsValue::from_str("Invalid JSON format")),
+    }
 }
