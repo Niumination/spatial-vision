@@ -1,6 +1,8 @@
 # Spatial Vision — Full-stack Rust/WASM
 
-Prototipe ini menyediakan backend Axum, frontend WebAssembly Rust, akses kamera, canvas spatial UI, serta modul Rust murni untuk perhitungan pinch.
+Prototipe deteksi gestur pinch tangan via kamera: backend Axum melayani asset
+statis, frontend WebAssembly (Rust) menghitung jarak ibu jari–telunjuk dari
+landmark MediaPipe, lalu menampilkan status pinch di layar.
 
 ## Prasyarat
 - Rust stable + `wasm32-unknown-unknown`
@@ -18,11 +20,25 @@ cargo run
 ```
 Buka `http://localhost:3000` (kamera hanya berjalan di HTTPS atau localhost).
 
-## Catatan implementasi
-- `frontend/src/gesture.rs` berisi `distance`, `is_pinching`, dan `pinch_strength`; indeks landmark mengikuti MediaPipe (4 ibu jari, 8 telunjuk).
-- `frontend/src/render.rs` menggambar panel interaktif pada canvas.
-- `backend/src/main.rs` melayani asset statis dan menyediakan `/ws` broadcast JSON antarklien.
-- Untuk produksi, tambahkan pipeline MediaPipe JS (atau WASM vision task) di `index.html` dan kirim 21 landmark ke fungsi gesture Rust melalui `wasm-bindgen`; backend tidak pernah menerima frame kamera mentah.
+## Arsitektur
+| Komponen | Path | Peran |
+|----------|------|-------|
+| Backend | `backend/src/main.rs` | Axum — serve `frontend/dist/` di port 3000 |
+| Frontend | `frontend/src/lib.rs` | `detect_pinch` + `init` (ekspor wasm) |
+| Logika murni | `frontend/src/lib.rs` | `parse_pinch` — jarak 3D ibu jari (4) & telunjuk (8) |
+| MediaPipe | `index.html` | Pipeline landmark dari kamera via CDN |
 
-## Pemeriksaan
-Struktur source sengaja minim dan tanpa dependensi framework UI agar mudah dibangun. Jalankan `cargo fmt --all` dan `cargo check` setelah Rust tersedia.
+Format input `detect_pinch`: array tangan dari `multiHandLandmarks` —
+`[[[x,y,z]x21], [[x,y,z]x21]]`. Output JSON: `{"isPinching":bool,"strength":float}`.
+
+## Testing
+```bash
+cargo test --manifest-path frontend/Cargo.toml
+```
+4 unit test: pinch dekat, tangan terbuka, JSON invalid, tanpa tangan.
+
+## Catatan
+- Gesture dihitung murni di sisi klien; kamera tidak pernah dikirim ke backend.
+- `process_pinch_data` di `mediapipe.rs` belum terpakai oleh `index.html`
+  (candidate hapus jika tidak dipakai lanjut).
+- Untuk produksi: pindah MediaPipe ke WASM task API (tanpa CDN) + HTTPS.

@@ -1,5 +1,10 @@
+# Build artifacts — regenerable via wasm-pack / cargo
 /target/
+/target
 /dist/
 *.wasm
+frontend/dist/
+
+# Editor / OS
 *.swp
 .DS_Store
