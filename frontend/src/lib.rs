@@ -5,7 +5,6 @@ use serde_json::Value;
 pub fn detect_pinch(landmarks_json: &str) -> Result<String, JsValue> {
     match serde_json::from_str::<Value>(landmarks_json) {
         Ok(Value::Array(landmarks_raw)) => {
-            eprintln!("Received {} landmarks", landmarks_raw.len());
             if landmarks_raw.len() < 2 {
                 return Err(JsValue::from_str("Need 2 hands"));
             }
@@ -21,8 +20,13 @@ pub fn detect_pinch(landmarks_json: &str) -> Result<String, JsValue> {
             let is_pinching = min_dist < 0.05;
             let strength = (1.0 - (min_dist / 0.15).min(1.0)) as f64;
 
-            Ok(format!("{{\"isPinching\":{},\"strength\":{}", is_pinching, strength))
+            Ok(format!("{{\"isPinching\":{},\"strength\":{}}}", is_pinching, strength))
         }
         _ => Err(JsValue::from_str("Invalid JSON format")),
     }
+}
+
+#[wasm_bindgen]
+pub fn init() {
+    console_error_panic_hook::set_once();
 }

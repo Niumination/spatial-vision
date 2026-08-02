@@ -7,5 +7,5 @@ lto = true
 opt-level = "z"
 codegen-units = 1
 
-[profile.release.package.frontend]
+[profile.release.package.spatial-vision-frontend]
 opt-level = "s"

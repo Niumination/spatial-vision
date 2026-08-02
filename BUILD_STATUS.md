@@ -1,66 +1,38 @@
 # Spatial Vision — Status Build
 
-**Tanggal:** 22 Jul 2026  
-**Lokasi:** `/Users/zaryu/Desktop/Niumination/projects/spatial-vision/`  
-**Mode:** Build (from Plan) — DOX Protocol ✅
+**Tanggal:** 30 Jul 2026
+**Lokasi:** `/Users/zaryu/Desktop/Niumination/sites/spatial-vision/`
+**Mode:** Ponytail Audit — Simplifikasi ✅
 
-## Hasil
+## Hasil Audit
 
-- ✅ File proyek disalin dari zip (`spatial-vision-arena.zip`)
-- ✅ Struktur workspace Rust (`Cargo.toml` workspace)
-- ✅ Frontend WASM dikompilasi (`spatial_vision_frontend.wasm` — 794KB)
-- ✅ `frontend/dist/` dibuat dengan `index.html`, `style.css`, `pkg/`, JS loader
-- ✅ Backend (`backend/src/main.rs`) siap (Axum 0.7, tokio, WebSocket `/ws`)
-- ✅ Dokumentasi (`README.md`, `uploads/Spatial-Vision Full Stack Rust.md`)
+- ✅ `frontend/src/lib.rs` — JSON output fixed (missing `}}`), added `init()`
+- ✅ `frontend/src/gesture.rs` — **dihapus** (dead code, tidak di-compile — no `mod gesture` di lib.rs)
+- ✅ `frontend/index.html` — THREE.js CDN dihapus (tak terpakai)
+- ✅ `backend/src/main.rs` — **disederhanakan**: hapus WebSocket broadcast (yagni, tanpa klien)
+- ✅ `frontend/Cargo.toml` — **dipersingkat**: hapus 11 fitur `web-sys` + `serde` (tak dipakai)
+- ✅ `backend/Cargo.toml` — hapus `serde` + `serde_json` (tak dipakai setelah WS dihapus)
+- ✅ `Cargo.toml` (root workspace) — fix profile name: `frontend` → `spatial-vision-frontend`
+- ✅ **Frontend WASM** — `cargo check --target wasm32-unknown-unknown` → ✅
+- ✅ **Backend Axum** — `cargo check` → ✅
 
-## Struktur File
+## Ringkasan
 
-```
-spatial-vision/
-├── Cargo.toml              # Workspace
-├── README.md               # Dokumentasi proyek
-├── BUILD_STATUS.md         # File ini
-├── backend/
-│   ├── Cargo.toml
-│   └── src/main.rs         # Axum server + WebSocket broadcast
-├── frontend/
-│   ├── Cargo.toml          # wasm-bindgen + web-sys
-│   ├── index.html
-│   ├── style.css
-│   ├── src/lib.rs          # WASM entry (kamera + canvas)
-│   �── src/gesture.rs      # Logika pinch (MediaPipe 21 landmark)
-│   └── src/render.rs       # Render canvas 2D
-│   └── dist/               # Build output (WASM + HTML + CSS)
-│       ├── index.html
-│       ├── style.css
-│       ├── pkg/
-│       │   ├── spatial_vision_frontend_bg.wasm
-│       │   �── spatial_vision_frontend.js
-│       └── spatial_vision_frontend.js
-└── target/
-    └── wasm32-unknown-unknown/release/
-        └── spatial_vision_frontend.wasm
-```
+| Kategori | Sebelum | Sesudah | Hemat |
+|----------|:-------:|:-------:|:-----:|
+| File source | 4 | 3 | -1 file |
+| Baris kode Rust | ~93 | ~42 | **-51 baris** |
+| Dependensi Rust | 13 baris | 4 baris | **-9 baris** |
+| CDN eksternal | 3 (MediaPipe + Camera + THREE) | 2 | -1 load |
+| Kompilasi | ⚠️ gesture.rs dead code | ✅ Bersih | — |
 
 ## Cara Menjalankan
 
 ```bash
-# 1. Build WASM (sudah selesai)
 cd frontend
-cargo build --target wasm32-unknown-unknown --release
-
-# 2. Jalankan backend server
+wasm-pack build --target web --out-dir dist/pkg
+cp index.html style.css dist/
 cd ../backend
-cargo run  # Server di http://localhost:3000
+cargo run
+# Buka http://localhost:3000
 ```
-
-## Catatan Implementasi
-
-- Frontend menggunakan `wasm-bindgen` (WebAssembly) untuk akses kamera (`getUserMedia`) dan render canvas (`CanvasRenderingContext2d`).
-- Modul `gesture.rs` berisi deteksi `pinch` berdasarkan jarak Euclidean antara landmark MediaPipe (ibu jari = 4, telunjuk = 8).
-- Backend `main.rs` melayani file statis (`ServeDir`) dan menyediakan `/ws` untuk broadcast JSON antar klien (multiplayer/collaborative workspace).
-- Untuk produksi, tambahkan pipeline MediaPipe JS di `index.html` dan kirim 21 landmark ke WASM melalui `wasm-bindgen`.
-
-## Referensi Dokumentasi Lengkap
-
-Lihat `uploads/Spatial-Vision Full Stack Rust.md` (panduan master prompt, tabel komponen open-source, setup hardware, alur integrasi full-stack Rust WASM).
