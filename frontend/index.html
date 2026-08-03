@@ -24,26 +24,36 @@
 import init, { detect_pinch } from './pkg/spatial_vision_frontend.js';
 init();
 
+const stats = document.getElementById('stats');
+
 if (typeof Hands === 'undefined') {
-  const stats = document.getElementById('stats');
   stats.textContent = 'Error: MediaPipe CDN gagal dimuat';
   stats.style.color = '#ff5566';
 } else {
   const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-  hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  hands.setOptions({
+    maxNumHands: 1,
+    modelComplexity: 0, // lite — cukup akurat untuk pinch, ~3x lebih cepat dari full
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
   hands.onResults(r => {
-    if (!r.multiHandLandmarks) return;
+    // Reset saat tidak ada tangan — cegah status lengket di "Pinch!" terakhir.
+    if (!r.multiHandLandmarks || r.multiHandLandmarks.length === 0) {
+      stats.textContent = 'Waiting';
+      stats.style.color = '#8dbbff';
+      return;
+    }
     const landmarks = r.multiHandLandmarks.map(hand => hand.map(l => [l.x, l.y, l.z]));
     try {
       const s = JSON.parse(detect_pinch(JSON.stringify(landmarks)));
-      const stats = document.getElementById('stats');
       stats.textContent = s.isPinching ? `Pinch! ${s.strength}` : 'Waiting';
       stats.style.color = s.isPinching ? '#00ff88' : '#8dbbff';
     } catch (e) {}
   });
   const camera = new Camera(document.getElementById('camera'), {
     onFrame: async () => await hands.send({ image: document.getElementById('camera') }),
-    width: 960, height: 540
+    width: 640, height: 360
   });
   camera.start();
 }
