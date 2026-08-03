@@ -46,6 +46,8 @@ berhasil diverifikasi & di-commit di sesi ini):
 - ✅ Server lokal :3000 — index.html, style.css, `vendor/mediapipe/hands.js`,
   `hands_solution_simd_wasm_bin.wasm`, `pkg/*.js` + `pkg/*.wasm` semua HTTP 200
 - ✅ `dist/` sinkron penuh dengan source (`diff -rq` bersih)
+- ✅ **Uji browser (headless)**: halaman load, `Hands` dari `vendor/` sukses (tanpa
+  teks error), module WASM jalan (dots launcher dibuat, page 0 `active`)
 - ⏭️ Uji kamera nyata (kursor/swipe/klik) belum bisa dijalankan headless — perlu
   manusia + browser + kamera. Kandidat verifikasi berikutnya.
 
