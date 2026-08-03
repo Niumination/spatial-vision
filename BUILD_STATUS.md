@@ -48,6 +48,8 @@ berhasil diverifikasi & di-commit di sesi ini):
 - ✅ `dist/` sinkron penuh dengan source (`diff -rq` bersih)
 - ✅ **Uji browser (headless)**: halaman load, `Hands` dari `vendor/` sukses (tanpa
   teks error), module WASM jalan (dots launcher dibuat, page 0 `active`)
+- ✅ **Uji fungsional navigasi**: klik dot 2 → page 1 aktif; klik dot 1 → page 0
+  aktif. `setPage` (fungsi yang sama dipanggil swipe) bekerja dua arah
 - ⏭️ Uji kamera nyata (kursor/swipe/klik) belum bisa dijalankan headless — perlu
   manusia + browser + kamera. Kandidat verifikasi berikutnya.
 
