@@ -5,6 +5,11 @@
 *.wasm
 frontend/dist/
 
+# Self-host MediaPipe WAJIB di-track (index.html memakainya offline).
+# Global ~/.gitignore_global punya `vendor/` — override untuk proyek ini.
+!frontend/vendor/
+!frontend/vendor/**
+
 # Editor / OS
 *.swp
 .DS_Store

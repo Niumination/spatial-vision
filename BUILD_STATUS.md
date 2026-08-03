@@ -2,7 +2,7 @@
 
 **Tanggal:** 3 Aug 2026
 **Lokasi:** `/Users/zaryu/Desktop/Niumination/sites/spatial-vision/`
-**Mode:** Ponytail Audit + Gesture Core Polish ✅
+**Mode:** Spatial Launcher — kursor+klik, swipe navigasi, self-host MediaPipe ✅
 
 ## Baseline Performa (3 Aug 2026)
 
@@ -27,6 +27,27 @@
 - ✅ `Cargo.toml` (root workspace) — fix profile name: `frontend` → `spatial-vision-frontend`
 - ✅ **Frontend WASM** — `cargo check --target wasm32-unknown-unknown` → ✅
 - ✅ **Backend Axum** — `cargo check` → ✅
+
+## Spatial Launcher (3 Aug 2026 — kursor + klik + swipe + self-host)
+
+Tiga paket lanjutan dari roadmap dieksekusi (kode lengkap di sesi sebelumnya,
+berhasil diverifikasi & di-commit di sesi ini):
+
+| Paket | Implementasi | Status |
+|-------|--------------|:------:|
+| **Kursor + klik (spatial launcher)** | Kursor dari ujung telunjuk [8] (mirror x), smoothing 0.5; rising-edge pinch = klik pada kartu launcher (2 halaman × 4 kartu); hover highlight; feedback flash "✅ <nama>" | ✅ |
+| **Swipe navigasi** | Window 150ms pada wrist [0], `|dx| > 0.35`, min span 60ms, cooldown 600ms → ganti halaman + dot indikator | ✅ |
+| **Self-host MediaPipe** | `frontend/vendor/mediapipe/` (11MB, 7 file) — offline, tanpa CDN; `locateFile` relatif; ✅ **WAJIB di-track** (override global `vendor/` via `!frontend/vendor/` di .gitignore) | ✅ |
+
+**Verifikasi (sesi ini):**
+
+- ✅ Rust unit test 5/5 (pinch, palm, hysteresis, JSON invalid, empty hands)
+- ✅ `cargo check` backend bersih
+- ✅ Server lokal :3000 — index.html, style.css, `vendor/mediapipe/hands.js`,
+  `hands_solution_simd_wasm_bin.wasm`, `pkg/*.js` + `pkg/*.wasm` semua HTTP 200
+- ✅ `dist/` sinkron penuh dengan source (`diff -rq` bersih)
+- ⏭️ Uji kamera nyata (kursor/swipe/klik) belum bisa dijalankan headless — perlu
+  manusia + browser + kamera. Kandidat verifikasi berikutnya.
 
 ## Gesture Core Polish (3 Aug 2026, commit `ec7d5d8`)
 
