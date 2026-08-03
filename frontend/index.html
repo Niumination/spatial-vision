@@ -25,6 +25,8 @@ import init, { detect_pinch } from './pkg/spatial_vision_frontend.js';
 init();
 
 const stats = document.getElementById('stats');
+let wasPinching = false;      // state pinch antar-frame untuk hysteresis di Rust
+let fpsFrames = 0, fpsT0 = performance.now(), fps = 0;
 
 if (typeof Hands === 'undefined') {
   stats.textContent = 'Error: MediaPipe CDN gagal dimuat';
@@ -38,24 +40,42 @@ if (typeof Hands === 'undefined') {
     minTrackingConfidence: 0.5
   });
   hands.onResults(r => {
-    // Reset saat tidak ada tangan — cegah status lengket di "Pinch!" terakhir.
+    // Reset saat tidak ada tangan — cegah status lengket di gestur terakhir.
     if (!r.multiHandLandmarks || r.multiHandLandmarks.length === 0) {
-      stats.textContent = 'Waiting';
+      wasPinching = false;
+      stats.textContent = `Waiting · FPS ${fps}`;
       stats.style.color = '#8dbbff';
+      countFps();
       return;
     }
     const landmarks = r.multiHandLandmarks.map(hand => hand.map(l => [l.x, l.y, l.z]));
     try {
-      const s = JSON.parse(detect_pinch(JSON.stringify(landmarks)));
-      stats.textContent = s.isPinching ? `Pinch! ${s.strength}` : 'Waiting';
+      const s = JSON.parse(detect_pinch(JSON.stringify(landmarks), wasPinching));
+      wasPinching = s.isPinching;
+      const label = s.gesture === 'pinch' ? `Pinch! ${s.strength}`
+        : s.gesture === 'palm' ? 'Palm'
+        : 'Waiting';
+      stats.textContent = `${label} · FPS ${fps}`;
       stats.style.color = s.isPinching ? '#00ff88' : '#8dbbff';
     } catch (e) {}
+    countFps();
   });
   const camera = new Camera(document.getElementById('camera'), {
     onFrame: async () => await hands.send({ image: document.getElementById('camera') }),
     width: 640, height: 360
   });
   camera.start();
+}
+
+// FPS rolling 1 detik — feedback loop pengukuran performa.
+function countFps() {
+  fpsFrames++;
+  const now = performance.now();
+  if (now - fpsT0 >= 1000) {
+    fps = fpsFrames;
+    fpsFrames = 0;
+    fpsT0 = now;
+  }
 }
 </script>
 </body>

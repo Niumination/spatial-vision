@@ -24,21 +24,27 @@ Buka `http://localhost:3000` (kamera hanya berjalan di HTTPS atau localhost).
 | Komponen | Path | Peran |
 |----------|------|-------|
 | Backend | `backend/src/main.rs` | Axum — serve `frontend/dist/` di port 3000 |
-| Frontend | `frontend/src/lib.rs` | `detect_pinch` + `init` (ekspor wasm) |
-| Logika murni | `frontend/src/lib.rs` | `parse_pinch` — jarak 3D ibu jari (4) & telunjuk (8) |
+| Frontend | `frontend/src/lib.rs` | `detect_pinch` + `parse_pinch` + 5 unit test |
 | MediaPipe | `index.html` | Pipeline landmark dari kamera via CDN |
 
-Format input `detect_pinch`: array tangan dari `multiHandLandmarks` —
-`[[[x,y,z]x21], [[x,y,z]x21]]`. Output JSON: `{"isPinching":bool,"strength":float}`.
+Format input `detect_pinch(landmarks_json, was_pinching)` — array tangan dari
+`multiHandLandmarks` — `[[[x,y,z]x21], [[x,y,z]x21]]`, plus state pinch frame
+sebelumnya (untuk hysteresis di Rust). Output JSON:
+`{"isPinching":bool,"strength":float,"gesture":"pinch"|"palm"|"none"}`.
+
+- **Hysteresis ambang ganda:** pinch ON `< 0.045`, OFF `> 0.06`, di antara =
+  tahan state — anti-jitter saat tangan goyang di ambang.
+- **Gesture `palm`:** jarak wrist(0)–middle tip(12) `> 0.40` (normalized) dan
+  tidak sedang pinch.
+- **FPS counter:** tampil di badge status, rolling 1 detik.
 
 ## Testing
 ```bash
 cargo test --manifest-path frontend/Cargo.toml
 ```
-4 unit test: pinch dekat, tangan terbuka, JSON invalid, tanpa tangan.
+5 unit test: pinch dekat, tangan terbuka (palm), hysteresis di deadband, JSON
+invalid, tanpa tangan.
 
 ## Catatan
 - Gesture dihitung murni di sisi klien; kamera tidak pernah dikirim ke backend.
-- `process_pinch_data` di `mediapipe.rs` belum terpakai oleh `index.html`
-  (candidate hapus jika tidak dipakai lanjut).
 - Untuk produksi: pindah MediaPipe ke WASM task API (tanpa CDN) + HTTPS.
