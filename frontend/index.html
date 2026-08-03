@@ -1,5 +1,52 @@
-<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Spatial Vision - Hand Tracking & Spatial UI</title><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script><script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script></head><body><main><header><h1>Spatial Vision</h1><p class="hint">Izinkan akses kamera untuk dekripsi gestur tangan melalui MediaPipe Hands.</p></header><section class="stage"><video id="camera" autoplay muted playsinline></video><canvas id="scene"></canvas></section><div id="stats" class="stats">Status: Menunggu kamera...</div></main><script type="module">import init from './pkg/spatial_vision_frontend.js';init();</script></body>
-<script>
-if(typeof Hands!=='undefined'){var h=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});h.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:0.5,minTrackingConfidence:0.5});h.onResults(r=>{if(r.multiHandLandmarks){var f=r.multiHandLandmarks.map(x=>x.map(l=>[l.x,l.y,l.z]));if(window.detect_pinch){try{var s=JSON.parse(window.detect_pinch(JSON.stringify(f)));document.getElementById('stats').textContent=s.isPinching?'Pinch! '+s.strength:'Waiting';document.getElementById('stats').style.color=s.isPinching?'#00ff88':'#8dbbff'}catch(e){}}}});var c=new Camera(document.getElementById('camera'),{onFrame:async()=>await h.send({image:document.getElementById('camera')}),width:960,height:540});c.start();}
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Spatial Vision - Hand Tracking & Spatial UI</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js"></script>
+</head>
+<body>
+<main>
+<header>
+<h1>Spatial Vision</h1>
+<p class="hint">Izinkan akses kamera untuk deteksi gestur tangan melalui MediaPipe Hands.</p>
+</header>
+<section class="stage">
+<video id="camera" autoplay muted playsinline></video>
+<canvas id="scene"></canvas>
+</section>
+<div id="stats" class="stats">Status: Menunggu kamera...</div>
+</main>
+<script type="module">
+import init, { detect_pinch } from './pkg/spatial_vision_frontend.js';
+init();
+
+if (typeof Hands === 'undefined') {
+  const stats = document.getElementById('stats');
+  stats.textContent = 'Error: MediaPipe CDN gagal dimuat';
+  stats.style.color = '#ff5566';
+} else {
+  const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+  hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+  hands.onResults(r => {
+    if (!r.multiHandLandmarks) return;
+    const landmarks = r.multiHandLandmarks.map(hand => hand.map(l => [l.x, l.y, l.z]));
+    try {
+      const s = JSON.parse(detect_pinch(JSON.stringify(landmarks)));
+      const stats = document.getElementById('stats');
+      stats.textContent = s.isPinching ? `Pinch! ${s.strength}` : 'Waiting';
+      stats.style.color = s.isPinching ? '#00ff88' : '#8dbbff';
+    } catch (e) {}
+  });
+  const camera = new Camera(document.getElementById('camera'), {
+    onFrame: async () => await hands.send({ image: document.getElementById('camera') }),
+    width: 960, height: 540
+  });
+  camera.start();
+}
 </script>
+</body>
 </html>
