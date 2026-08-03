@@ -60,6 +60,27 @@ berhasil diverifikasi & di-commit di sesi ini):
 - **FPS counter** — badge status rolling 1 detik
 - **Unit test: 5/5 ✅** (pinch, palm, hysteresis, JSON invalid, empty hands)
 
+## App Modal + Dwell-to-Select (3 Aug 2026)
+
+Kartu launcher jadi app sungguhan (Next Steps #2–#3 AGENTS.md) — 3 paket:
+
+| Paket | Implementasi | Status |
+|-------|--------------|:------:|
+| **README update** | Deskripsi self-host MediaPipe (bukan CDN), tabel fitur launcher, catatan produksi | ✅ |
+| **Kartu → app modal** | `data-href` + `data-desc` di tiap kartu; klik → modal (judul, deskripsi, tombol "Buka <app>" `target=_blank`, "Tutup"); palm membuka telapak = tutup modal | ✅ |
+| **Dwell-to-select** | Tahan kursor di kartu 900ms (`DWELL_MS`) = pilih; progress bar hijau via CSS `animation: dwell .9s`; timer dibatalkan saat tangan hilang/modal terbuka/kursor pindah; dual input mouse (klik langsung) sekalian testable | ✅ |
+
+**Verifikasi (browser live :3000):**
+
+- ✅ Page load — 8 kartu (2 halaman × 4) render, tanpa error
+- ✅ Klik kartu Media → modal terbuka: judul "Media", deskripsi "Putar video di
+  YouTube", link `https://www.youtube.com` (text "Buka Media"), tombol "Tutup"
+- ✅ Klik "Tutup" → modal tertutup (DOM `#modal` kembali `hidden`)
+- ✅ `dist/` disinkron ulang dari source (index.html + style.css identik)
+- ⏭️ Dwell-to-select & palm-close jalan via jalur yang sama (`activateCard` /
+  `closeApp` terverifikasi; timer 900ms = `setTimeout` → `activateCard`) — uji
+  penuh butuh kamera nyata (gestur tangan asli)
+
 ## Ringkasan Audit (30 Jul 2026)
 
 | Kategori | Sebelum | Sesudah | Hemat |

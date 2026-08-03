@@ -9,9 +9,10 @@
 ## Overview
 
 Spatial UI berbasis kamera: kursor tangan (ujung telunjuk), pinch = klik,
-palm = berhenti, swipe kiri/kanan = pindah halaman launcher. Backend Axum
-serve asset statis; frontend WASM (Rust) menghitung jarak 3D ibu jari–telunjuk
-dari landmark MediaPipe (self-host di `frontend/vendor/`, offline).
+palm = tutup modal, swipe kiri/kanan = pindah halaman launcher, dwell 900ms =
+pilih kartu (modal app). Backend Axum serve asset statis; frontend WASM (Rust)
+menghitung jarak 3D ibu jari–telunjuk dari landmark MediaPipe (self-host di
+`frontend/vendor/`, offline).
 **Seluruh proses gesture murni di sisi klien — video kamera tidak pernah
 dikirim ke backend.**
 
@@ -93,7 +94,10 @@ cargo test --manifest-path frontend/Cargo.toml
 
 | Tanggal | Commit | Isi |
 |---------|--------|-----|
-| 3 Aug 2026 | *(commit berikutnya)* | Spatial launcher: kursor tangan + pinch=klik, swipe navigasi, self-host MediaPipe (vendor 11MB) |
+| 3 Aug 2026 | *(commit berikutnya)* | App modal + dwell-to-select (900ms): kartu → modal URL, palm = tutup, dual input mouse |
+| 3 Aug 2026 | `5bab585` | Uji fungsional navigasi dua arah (setPage via dots) |
+| 3 Aug 2026 | `1d7d880` | Verifikasi browser headless (vendor load, WASM module jalan) di BUILD_STATUS |
+| 3 Aug 2026 | `df2f92d` | Spatial launcher: kursor tangan + pinch=klik, swipe navigasi, self-host MediaPipe (vendor 11MB) |
 | 3 Aug 2026 | `ec7d5d8` | Gesture core polish: hysteresis, palm gesture, FPS counter, hapus mediapipe.rs |
 | 3 Aug 2026 | `61c0b63` | Perf: lite model, 1 hand, cam 640x360, reset status |
 | 3 Aug 2026 | `f763d79` | index.html rapi + error handling MediaPipe CDN + import `detect_pinch` langsung dari glue |
@@ -105,7 +109,6 @@ cargo test --manifest-path frontend/Cargo.toml
 ## Next Steps (kandidat)
 
 - Kalibrasi threshold swipe (`dx > 0.35`, window 150ms) & pinch via uji nyata di kamera
-- Kartu launcher jadi app sungguhan (bukan sekadar flash label) — mis. buka URL/modal
-- Dwell-to-select (tahan kursor di kartu) sebagai alternatif klik
+- Uji nyata dwell-to-select & palm-close dengan tangan asli (kamera)
 - Edge-case: dua tangan, tangan keluar frame saat pinch aktif (kursor melompat)
 - Produksi: MediaPipe WASM task API (lebih kecil dari solution bundle 11MB) + HTTPS + deploy

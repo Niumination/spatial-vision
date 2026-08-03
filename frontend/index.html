@@ -20,18 +20,28 @@
 <canvas id="scene"></canvas>
 <div id="launcher">
   <div class="page" data-page="0">
-    <button class="card" data-name="Media">🎬 Media</button>
-    <button class="card" data-name="Maps">🗺️ Maps</button>
-    <button class="card" data-name="Music">🎵 Music</button>
-    <button class="card" data-name="Camera">📷 Camera</button>
+    <button class="card" data-name="Media" data-href="https://www.youtube.com" data-desc="Putar video di YouTube">🎬 Media</button>
+    <button class="card" data-name="Maps" data-href="https://maps.google.com" data-desc="Cari lokasi di Google Maps">🗺️ Maps</button>
+    <button class="card" data-name="Music" data-href="https://open.spotify.com" data-desc="Streaming musik di Spotify">🎵 Music</button>
+    <button class="card" data-name="Camera" data-href="https://webcamtoy.com" data-desc="Coba efek kamera web">📷 Camera</button>
   </div>
   <div class="page" data-page="1">
-    <button class="card" data-name="Settings">⚙️ Settings</button>
-    <button class="card" data-name="News">📰 News</button>
-    <button class="card" data-name="Mail">✉️ Mail</button>
-    <button class="card" data-name="Games">🎮 Games</button>
+    <button class="card" data-name="Settings" data-href="https://github.com/Niumination/spatial-vision" data-desc="Lihat kode proyek Spatial Vision">⚙️ Settings</button>
+    <button class="card" data-name="News" data-href="https://news.google.com" data-desc="Berita terkini di Google News">📰 News</button>
+    <button class="card" data-name="Mail" data-href="https://mail.google.com" data-desc="Buka Gmail">✉️ Mail</button>
+    <button class="card" data-name="Games" data-href="https://itch.io" data-desc="Jelajahi game indie di itch.io">🎮 Games</button>
   </div>
   <div id="dots"></div>
+</div>
+<div id="modal" hidden>
+  <div class="modal-box">
+    <h2 id="modal-title"></h2>
+    <p id="modal-desc"></p>
+    <div class="modal-actions">
+      <a id="modal-link" target="_blank" rel="noopener">Buka</a>
+      <button id="modal-close">Tutup</button>
+    </div>
+  </div>
 </div>
 </section>
 <div id="stats" class="stats">Status: Menunggu kamera...</div>
@@ -65,6 +75,21 @@ pages.forEach((_, i) => {
 });
 const dots = [...dotsWrap.children];
 
+const modal = document.getElementById('modal');
+const modalTitle = document.getElementById('modal-title');
+const modalDesc = document.getElementById('modal-desc');
+const modalLink = document.getElementById('modal-link');
+const modalClose = document.getElementById('modal-close');
+
+// Dwell-to-select: tahan kursor di kartu 900ms = klik.
+const DWELL_MS = 900;
+let dwellTimer = null, dwellCard = null;
+
+// Mouse juga bisa klik kartu langsung (dual input, sekalian testable).
+document.querySelectorAll('.card').forEach(c =>
+  c.addEventListener('click', () => activateCard(c)));
+modalClose.addEventListener('click', closeApp);
+
 function setPage(i) {
   currentPage = Math.max(0, Math.min(pages.length - 1, i));
   pages.forEach((p, idx) => p.classList.toggle('active', idx === currentPage));
@@ -80,11 +105,37 @@ function elementAtCursor() {
   );
 }
 
-function activateCard(el) {
-  el.classList.add('active');
+function openApp(el) {
+  modalTitle.textContent = el.dataset.name;
+  modalDesc.textContent = el.dataset.desc || '';
+  modalLink.href = el.dataset.href || '#';
+  modalLink.textContent = 'Buka ' + el.dataset.name;
+  modal.hidden = false;
   flashMsg = '✅ ' + el.dataset.name;
   flashUntil = performance.now() + 900;
+}
+
+function closeApp() { modal.hidden = true; }
+
+function activateCard(el) {
+  clearTimeout(dwellTimer); dwellCard = null;
+  el.classList.add('active');
   setTimeout(() => el.classList.remove('active'), 500);
+  openApp(el);
+}
+
+function updateHover(hov) {
+  document.querySelectorAll('.card.hover').forEach(c => c.classList.remove('hover'));
+  const ok = hov && hov.classList.contains('card') && modal.hidden;
+  if (!ok) { dwellCard = null; clearTimeout(dwellTimer); return; }
+  hov.classList.add('hover');
+  if (hov !== dwellCard) {
+    dwellCard = hov;
+    clearTimeout(dwellTimer);
+    dwellTimer = setTimeout(() => {
+      if (dwellCard && modal.hidden) activateCard(dwellCard);
+    }, DWELL_MS);
+  }
 }
 
 function draw() {
@@ -128,6 +179,7 @@ if (typeof Hands === 'undefined') {
     if (!r.multiHandLandmarks || r.multiHandLandmarks.length === 0) {
       wasPinching = false;
       cursor.visible = false;
+      dwellCard = null; clearTimeout(dwellTimer);
       stats.textContent = `Waiting · FPS ${fps}`;
       stats.style.color = '#8dbbff';
       draw();
@@ -172,12 +224,12 @@ if (typeof Hands === 'undefined') {
         : 'Waiting';
       stats.textContent = performance.now() < flashUntil ? flashMsg : `${label} · FPS ${fps}`;
       stats.style.color = s.isPinching ? '#00ff88' : '#8dbbff';
+      // Palm = tutup modal app (gestur alami "membuka telapak").
+      if (s.gesture === 'palm' && !modal.hidden) closeApp();
     } catch (e) {}
 
-    // Hover highlight pada kartu di bawah kursor
-    document.querySelectorAll('.card.hover').forEach(c => c.classList.remove('hover'));
-    const hov = elementAtCursor();
-    if (hov && hov.classList.contains('card')) hov.classList.add('hover');
+    // Hover highlight + dwell-to-select pada kartu di bawah kursor
+    updateHover(elementAtCursor());
 
     draw();
   });
