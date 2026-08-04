@@ -1,8 +1,32 @@
 # Spatial Vision — Status Build
 
-**Tanggal:** 3 Aug 2026
+**Tanggal:** 5 Aug 2026
 **Lokasi:** `/Users/zaryu/Desktop/Niumination/sites/spatial-vision/`
 **Mode:** Spatial Launcher — kursor+klik, swipe navigasi, self-host MediaPipe ✅
+
+## Audit Browser Headless (5 Aug 2026)
+
+**Uji nyata via Playwright Chromium** — 2 konteks: (A) fake camera → graph
+MediaPipe + FPS loop; (B) kamera ditolak → seluruh interaksi mouse Level 2.
+
+**Hasil:** **22/22 ✅** — 4 bug nyata ditemukan & diperbaiki:
+
+| # | Bug | Perbaikan |
+|---|-----|-----------|
+| 1 | MediaPipe gagal init — `hand_landmark_lite/full.tflite` hilang dari vendor (`model identifier 'd', should be 'TFL3'`) | Tambah kedua tflite dari CDN resmi `@mediapipe/hands@0.4.1675469240` (magic bytes `TFL3` ✅) |
+| 2 | Dots navigasi tidak bisa diklik — `#dots` mewarisi `pointer-events:none` dari `#launcher` | `pointer-events:auto` pada `#dots` |
+| 3 | Dwell-to-select mouse mati — `updateHover` hanya dipanggil dari loop kamera | Listener `mousemove` level document → `updateHover(..., 'mouse')` |
+| 4 | Frame tanpa tangan membatalkan dwell mouse | State `dwellSource` — hanya dwell sumber tangan yang dibatalkan saat tangan hilang |
+
+**Juga:** `.catch()` pada `camera.start()` → badge "Kamera tidak tersedia
+(izin ditolak)" saat izin ditolak; interaksi mouse tetap jalan penuh.
+
+**Cakupan uji konteks B (16 asersi):** buka modal, judul/deskripsi/href, tutup
+modal, navigasi dots dua arah, dwell 900ms buka kartu benar, dwell <900ms
+dibatalkan, link Buka → tab baru, nol error JS.
+
+**Sisa (butuh kamera fisik):** gestur nyata — kursor tangan, pinch=klik,
+swipe, palm=tutup (Level 3 TESTING.md).
 
 ## Baseline Performa (3 Aug 2026)
 

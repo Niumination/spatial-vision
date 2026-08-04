@@ -83,12 +83,19 @@ const modalClose = document.getElementById('modal-close');
 
 // Dwell-to-select: tahan kursor di kartu 900ms = klik.
 const DWELL_MS = 900;
-let dwellTimer = null, dwellCard = null;
+let dwellTimer = null, dwellCard = null, dwellSource = 'hand';
 
 // Mouse juga bisa klik kartu langsung (dual input, sekalian testable).
 document.querySelectorAll('.card').forEach(c =>
   c.addEventListener('click', () => activateCard(c)));
 modalClose.addEventListener('click', closeApp);
+
+// Dual input mouse: hover kartu juga memicu dwell-to-select (updateHover yang
+// sama dipakai gestur kamera). Listener di document — mouse keluar stage harus
+// membatalkan dwell, bukan menggantung.
+document.addEventListener('mousemove', e => {
+  updateHover(document.elementFromPoint(e.clientX, e.clientY), 'mouse');
+});
 
 function setPage(i) {
   currentPage = Math.max(0, Math.min(pages.length - 1, i));
@@ -124,13 +131,14 @@ function activateCard(el) {
   openApp(el);
 }
 
-function updateHover(hov) {
+function updateHover(hov, src = 'hand') {
   document.querySelectorAll('.card.hover').forEach(c => c.classList.remove('hover'));
   const ok = hov && hov.classList.contains('card') && modal.hidden;
   if (!ok) { dwellCard = null; clearTimeout(dwellTimer); return; }
   hov.classList.add('hover');
   if (hov !== dwellCard) {
     dwellCard = hov;
+    dwellSource = src;
     clearTimeout(dwellTimer);
     dwellTimer = setTimeout(() => {
       if (dwellCard && modal.hidden) activateCard(dwellCard);
@@ -176,10 +184,12 @@ if (typeof Hands === 'undefined') {
   hands.onResults(r => {
     countFps();
     // Reset saat tidak ada tangan — kursor hilang, status tidak lengket.
+    // Dwell mouse (sumber 'mouse') TIDAK dibatalkan — dual input: kamera tanpa
+    // tangan tidak boleh mengganggu interaksi mouse.
     if (!r.multiHandLandmarks || r.multiHandLandmarks.length === 0) {
       wasPinching = false;
       cursor.visible = false;
-      dwellCard = null; clearTimeout(dwellTimer);
+      if (dwellSource === 'hand') { dwellCard = null; clearTimeout(dwellTimer); }
       stats.textContent = `Waiting · FPS ${fps}`;
       stats.style.color = '#8dbbff';
       draw();
@@ -238,7 +248,11 @@ if (typeof Hands === 'undefined') {
     onFrame: async () => await hands.send({ image: document.getElementById('camera') }),
     width: 640, height: 360
   });
-  camera.start();
+  camera.start().catch(() => {
+    // Kamera ditolak/tidak ada: interaksi mouse tetap berfungsi (dual input).
+    stats.textContent = 'Kamera tidak tersedia (izin ditolak)';
+    stats.style.color = '#ffb020';
+  });
 }
 </script>
 </body>

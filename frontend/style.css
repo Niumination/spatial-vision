@@ -11,7 +11,7 @@
 .card:hover{border-color:#3f6da8}
 .card.hover{transform:scale(1.05);border-color:#00ff88;box-shadow:0 0 18px #00ff8833}
 .card.active{transform:scale(.95);border-color:#00ff88;background:#0d2a1d;box-shadow:0 0 24px #00ff8844}
-#dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px}
+#dots{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);display:flex;gap:8px;pointer-events:auto}
 .dot{width:8px;height:8px;border-radius:50%;background:#28466c;transition:background .2s}
 .dot.active{background:#00ff88}/* Dwell-to-select: sweep progress 900ms (sinkron DWELL_MS di index.html) */
 .card{position:relative;overflow:hidden}

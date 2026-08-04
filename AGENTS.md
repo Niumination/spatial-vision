@@ -26,7 +26,9 @@ spatial-vision/
 │   ├── src/lib.rs           detect_pinch (wasm wrapper) + parse_pinch (logika) + 5 unit test
 │   ├── index.html           MediaPipe pipeline + kamera + kursor/klik/swipe/launcher
 │   ├── style.css
-│   ├── vendor/mediapipe/    MediaPipe self-host (11MB) — ✅ WAJIB di-track (offline)
+│   ├── vendor/mediapipe/    MediaPipe self-host (~18MB, 9 file) — ✅ WAJIB di-track (offline)
+│   │                        hands.js, camera_utils.js, binarypb, wasm bins, packed assets,
+│   │                        hand_landmark_lite.tflite + hand_landmark_full.tflite
 │   └── dist/                Build artifact — ❌ TIDAK di-track (regenerable)
 │                            (index.html/style.css/vendor di-copy dari source)
 ├── uploads/                 Draft spesifikasi
@@ -57,8 +59,12 @@ cargo test --manifest-path frontend/Cargo.toml
 ```
 
 **Verifikasi:** `curl -I http://localhost:3000/` → 200, dan
-`/pkg/spatial_vision_frontend_bg.wasm` + `/vendor/mediapipe/hands.js` → 200
-(jangan hanya cek index.html — glue WASM & vendor paling rawan 404).
+`/pkg/spatial_vision_frontend_bg.wasm`, `/vendor/mediapipe/hands.js`,
+`/vendor/mediapipe/hand_landmark_lite.tflite`, dan
+`/vendor/mediapipe/hand_landmark_full.tflite` → 200
+(jangan hanya cek index.html — glue WASM, vendor, & model tflite paling rawan
+404; tflite hilang = MediaPipe gagal init `model identifier 'd', should be
+'TFL3'`).
 
 ## Aturan Proyek
 
@@ -75,8 +81,9 @@ cargo test --manifest-path frontend/Cargo.toml
    = app 404). Build dulu → commit hanya source.
 6. **`frontend/vendor/` adalah PENGECUALIAN** — WAJIB di-track. Global
    `~/.gitignore_global` punya `vendor/`; .gitignore proyek meng-override dengan
-   `!frontend/vendor/`. index.html self-host MediaPipe dari folder ini; tanpa
-   vendor, app 404 di tangan (bukan cuma saat build).
+   `!frontend/vendor/`. index.html self-host MediaPipe dari folder ini (termasuk
+   `hand_landmark_lite.tflite` + `hand_landmark_full.tflite`); tanpa vendor, app
+   404 di tangan (bukan cuma saat build).
 7. **Backend path** — `ServeDir` relatif ke CWD; dokumentasikan menjalankan dari
    `backend/` agar tidak 404 (`../frontend/dist`).
 8. Update README & BUILD_STATUS setiap ada perubahan arsitektur.
@@ -95,6 +102,7 @@ cargo test --manifest-path frontend/Cargo.toml
 
 | Tanggal | Commit | Isi |
 |---------|--------|-----|
+| 5 Aug 2026 | *(commit berikutnya)* | **Audit browser headless + 4 bugfix**: tambah hand_landmark_lite/full.tflite ke vendor (MediaPipe gagal init `TFL3`), `pointer-events:auto` pada `#dots`, dwell mouse via `mousemove` + `dwellSource`, `.catch` camera → "Kamera tidak tersedia (izin ditolak)". Smoke test Playwright 2 konteks 22/22 ✅ |
 | 4 Aug 2026 | *(commit berikutnya)* | Tambah TESTING.md — panduan uji coba 3 level (otomatis, mouse, kamera nyata) + kalibrasi threshold |
 | 3 Aug 2026 | *(commit berikutnya)* | App modal + dwell-to-select (900ms): kartu → modal URL, palm = tutup, dual input mouse |
 | 3 Aug 2026 | `5bab585` | Uji fungsional navigasi dua arah (setPage via dots) |

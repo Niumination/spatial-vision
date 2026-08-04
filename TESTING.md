@@ -37,10 +37,14 @@ localhost/HTTPS). Grant permission kamera saat browser minta.
 curl -I http://localhost:3000/                      # → 200
 curl -I http://localhost:3000/pkg/spatial_vision_frontend_bg.wasm  # → 200
 curl -I http://localhost:3000/vendor/mediapipe/hands.js            # → 200
+curl -I http://localhost:3000/vendor/mediapipe/hand_landmark_lite.tflite  # → 200
+curl -I http://localhost:3000/vendor/mediapipe/hand_landmark_full.tflite  # → 200
 ```
 
-> Glue WASM & vendor paling rawan 404 — kalau salah satu bukan 200, app rusak
-> meski index.html kebuka.
+> Glue WASM, vendor, dan model tflite paling rawan 404 — kalau salah satu bukan
+> 200, app rusak meski index.html kebuka. Model tflite yang hilang membuat
+> MediaPipe gagal init: console `model identifier 'd', should be 'TFL3'` dan
+> badge tidak pernah berubah dari "Menunggu kamera...".
 
 ---
 
@@ -63,7 +67,7 @@ memverifikasi launcher, modal, dan dwell **sebelum** gestur tangan.
 
 | # | Langkah | Hasil yang diharapkan |
 |---|---------|----------------------|
-| 1 | Buka `http://localhost:3000` | Badge status "Menunggu kamera..." lalu "Waiting · FPS 0" (kamera belum ada / denied) |
+| 1 | Buka `http://localhost:3000` | Badge status "Menunggu kamera..." → jika kamera ditolak/tidak ada: "Kamera tidak tersedia (izin ditolak)"; jika kamera ada: "Waiting · FPS 0" (belum ada tangan) |
 | 2 | Perhatikan launcher | 2 halaman × 4 kartu = 8 kartu, dot indikator 2, dot pertama `active` |
 | 3 | Klik kartu **Media** | Modal terbuka: judul "Media", deskripsi "Putar video di YouTube", tombol "Buka Media" + "Tutup" |
 | 4 | Klik **Tutup** | Modal tertutup (DOM `#modal` `hidden`) |
@@ -74,8 +78,11 @@ memverifikasi launcher, modal, dan dwell **sebelum** gestur tangan.
 | 9 | Klik **Buka Maps** di modal | Tab baru terbuka ke `https://maps.google.com` |
 
 **Catatan:** langkah 7–8 menguji jalur `dwellTimer` → `activateCard` yang sama
-dipakai gestur dwell-to-select. Kalau lulus, bagian dwell di kamera tinggal
-membuktikan kursor stabil di atas kartu.
+dipakai gestur dwell-to-select. Dwell mouse aktif lewat listener `mousemove` di
+`document` (sumber `mouse`), jadi kamera yang tidak mendeteksi tangan tidak
+membatalkan dwell mouse; memindahkan kursor keluar kartu/stage tetap
+membatalkannya. Kalau lulus, bagian dwell di kamera tinggal membuktikan kursor
+stabil di atas kartu.
 
 ---
 
@@ -152,12 +159,12 @@ di `frontend/src/lib.rs` / `parse_pinch`.
 
 ## Checklist Akhir
 
-- [ ] Level 1: unit test 5/5 ✅
-- [ ] Level 2: modal buka/tutup, navigasi dots, dwell mouse, link Buka ✅
+- [x] Level 1: unit test 5/5 ✅
+- [x] Level 2: modal buka/tutup, navigasi dots, dwell mouse, link Buka ✅ (terverifikasi headless Chromium 5 Aug 2026)
 - [ ] Level 3: kursor mengikuti, FPS ≥ 30
 - [ ] Pinch membuka modal (semua kartu)
 - [ ] Swipe dua arah (kiri/kanan), gerak pelan tidak pindah
-- [ ] Dwell 900ms memilih kartu; < 900ms dibatalkan
+- [x] Dwell 900ms memilih kartu; < 900ms dibatalkan (jalur mouse) ✅
 - [ ] Palm menutup modal
 - [ ] Tangan keluar frame = reset bersih tanpa klik menggantung
 
@@ -168,6 +175,7 @@ di `frontend/src/lib.rs` / `parse_pinch`.
 | Gejala | Penyebab | Solusi |
 |--------|----------|--------|
 | Badge "Error: MediaPipe gagal dimuat" | `vendor/` tidak tersaji | `cp -R vendor dist/` lalu refresh; cek `curl /vendor/mediapipe/hands.js` → 200 |
+| Badge stuck "Menunggu kamera...", console `model identifier 'd', should be 'TFL3'` | `hand_landmark_*.tflite` hilang dari `vendor/mediapipe/` | Salin `hand_landmark_lite.tflite` + `hand_landmark_full.tflite` dari CDN resmi `@mediapipe/hands@0.4.1675469240` ke vendor, `cp -R vendor dist/` |
 | Halaman 404 / wasm 404 | Jalankan dari folder salah | `cd backend && cargo run` (ServeDir relatif ke CWD) |
 | Kamera tidak muncul / denied | Bukan localhost/HTTPS, atau permission ditolak | Buka `http://localhost:3000`; reset permission kamera di browser |
 | Tangan tidak terdeteksi | Cahaya kurang / jarak jauh | Perbesar cahaya, dekatkan tangan 30–70cm |
