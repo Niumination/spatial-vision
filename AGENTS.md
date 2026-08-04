@@ -31,6 +31,7 @@ spatial-vision/
 │                            (index.html/style.css/vendor di-copy dari source)
 ├── uploads/                 Draft spesifikasi
 ├── BUILD_STATUS.md          Catatan audit + ringkasan hasil
+├── TESTING.md               Panduan uji coba 3 level (otomatis/mouse/kamera)
 └── README.md                Panduan run + arsitektur
 ```
 
@@ -94,6 +95,7 @@ cargo test --manifest-path frontend/Cargo.toml
 
 | Tanggal | Commit | Isi |
 |---------|--------|-----|
+| 4 Aug 2026 | *(commit berikutnya)* | Tambah TESTING.md — panduan uji coba 3 level (otomatis, mouse, kamera nyata) + kalibrasi threshold |
 | 3 Aug 2026 | *(commit berikutnya)* | App modal + dwell-to-select (900ms): kartu → modal URL, palm = tutup, dual input mouse |
 | 3 Aug 2026 | `5bab585` | Uji fungsional navigasi dua arah (setPage via dots) |
 | 3 Aug 2026 | `1d7d880` | Verifikasi browser headless (vendor load, WASM module jalan) di BUILD_STATUS |
