@@ -122,9 +122,9 @@ di `frontend/src/lib.rs` / `parse_pinch`.
 | # | Langkah | Hasil |
 |---|---------|-------|
 | 1 | Pastikan di halaman 0 (dot 1 active) | — |
-| 2 | Ayunkan pergelangan cepat ke **kiri** (tangan gerak ke kiri, ~150ms) | Pindah ke halaman 1 (dot 2 active) |
+| 2 | Ayunkan pergelangan cepat ke **kiri** (tangan gerak ke kiri, ~220ms; ujung telunjuk bergerak dominan satu arah, rasio kelurusan > 0.45) | Pindah ke halaman 1 (dot 2 active) |
 | 3 | Ayunkan ke **kanan** | Kembali ke halaman 0 |
-| 4 | Gerakkan tangan pelan (tanpa ayunan cepat) | **Tidak** pindah halaman — swipe butuh `|dx| > 0.35` dalam 150ms |
+| 4 | Gerakkan tangan pelan (tanpa ayunan cepat) | **Tidak** pindah halaman — swipe butuh `|dx| > 0.22` dalam 220ms + kelurusan `> 0.45` |
 
 **Kalibrasi:** threshold di `frontend/index.html` (`dx > 0.35`, cooldown 600ms).
 
@@ -181,19 +181,21 @@ di `frontend/src/lib.rs` / `parse_pinch`.
 | Tangan tidak terdeteksi | Cahaya kurang / jarak jauh | Perbesar cahaya, dekatkan tangan 30–70cm |
 | FPS rendah (< 20) | Model lite belum aktif / terlalu banyak aplikasi | Cek `modelComplexity: 0` di index.html; tutup tab berat; coba Chrome |
 | Pinch terlalu sensitif/berat | Threshold `0.045/0.06` belum cocok dengan jarak duduk | Sesuaikan di `frontend/src/lib.rs` → `parse_pinch`; rebuild wasm + `cp pkg dist/` |
-| Swipe tidak terdeteksi | Ayunan terlalu pelan | Ayun lebih cepat & lebar (`|dx| > 0.35` dalam 150ms) |
+| Swipe tidak terdeteksi | Ayunan terlalu pelan | Ayun lebih cepat & lebar (`|dx| > 0.22` dalam 220ms, rasio kelurusan `> 0.45`, ujung telunjuk bukan wrist; swipe kiri layar = halaman berikutnya, kanan = kembali — konvensi mirror) |
+| Perubahan kode tidak muncul | `dist/` tidak di-rebuild / `index.html` belum disalin | `cp index.html style.css dist/` + `cp -R vendor dist/`; `wasm-pack build --target web --out-dir dist/pkg`; hard refresh (Cmd+Shift+R) |
 | Perubahan kode tidak muncul | `dist/` tidak di-rebuild | `wasm-pack build` ulang + `cp index.html style.css dist/` + hard refresh (Cmd+Shift+R) |
 
 ---
 
 ## Referensi Threshold (untuk kalibrasi)
 
-| Parameter | Nilai | Lokasi |
-|-----------|-------|--------|
+| Parameter | Nilai Saat Ini | Lokasi |
+|-----------|:------------:|--------|
 | Pinch ON / OFF | `< 0.045` / `> 0.06` | `frontend/src/lib.rs` (`parse_pinch`) |
 | Palm wrist–middle tip | `> 0.40` | `frontend/src/lib.rs` |
 | `strength` fade-out | linear sampai jarak `0.15` | `frontend/src/lib.rs` |
-| Swipe | `|dx| > 0.35`, window 150ms, cooldown 600ms | `frontend/index.html` |
+| **Swipe** | `|dx| > 0.22`, window **220ms**, rasio kelurusan `> 0.45`, cooldown **500ms**, ujung telunjuk [8] (bukan wrist [0]) | `frontend/index.html` |
+| Konvensi swipe (layar mirror `scaleX(-1)`) | **kiri layar (dx < 0) = halaman berikutnya**, kanan = kembali | `frontend/index.html` |
 | Dwell | `900ms` (`DWELL_MS`) | `frontend/index.html` |
 | Smoothing kursor | `0.5` | `frontend/index.html` |
 | Kamera | 640×360, lite model, 1 hand | `frontend/index.html` |

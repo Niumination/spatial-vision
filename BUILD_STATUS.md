@@ -28,6 +28,48 @@ dibatalkan, link Buka → tab baru, nol error JS.
 **Sisa (butuh kamera fisik):** gestur nyata — kursor tangan, pinch=klik,
 swipe, palm=tutup (Level 3 TESTING.md).
 
+## Audit Browser Headless — Lanjutan dari Sesi `bear` (5 Aug 2026)
+
+Sesi `bear` (4 Aug, 17:09 → 18:28) terputus saat debugging swipe + deteksi
+jari setelah audit headless awal (commit `6fde043`). User melaporkan:
+"jari hanya 1 dengan lingkaran hijau, swipe tidak berfungsi".
+
+### Bug utama yang ditemukan & diperbaiki
+
+| # | Bug | Akar | Perbaikan (dalam sesi ini) |
+|---|-----|------|---------------------------|
+| 5 | **Kerangka tangan tidak tergambar** — hanya lingkaran hijau kursor terlihat (`0 px`) | `smoothHand()` mencampur objek `{x,y,z}` (MediaPipe) dengan indeks array `[0]` → semua landmark jadi NaN; `drawHand()` menerima NaN | Seragamkan ke objek `{x,y,z}`: smoothing per properti `.x/.y/.z`, `drawHand` akses `lm[i].x` |
+| 6 | **Swipe tidak berfungsi** — threshold 0.35/150ms pakai wrist [0] terlalu ketat dan arah mungkin salah | Wrist bergerak sedikit saat swipe; konvensi arah belum konsisten dengan TESTING.md (`kiri layar = halaman berikutnya` di mirror `scaleX(-1)`) | Rompak swipe: ujung telunjuk [8], window **220ms**, threshold `|dx| > 0.22`, rasio kelurusan `> 0.45`, cooldown 500ms, arah dibalik (`dx < 0` = next) |
+| 7 | **Loop kamera mati saat landmark NaN** — `elementFromPoint(NaN)` melempar `DOMException` | MediaPipe kadang output NaN saat gerak cepat/awal init; error tidak ditangkap | Guard `if (!Number.isFinite(cursor.x/y)) return null` di `elementAtCursor()`; guard non-finite di `onResults`; `.catch()` di `camera.start()` dan `hands.send()` |
+| 8 | **Swipe memicu dwell modal tak sengaja** — kursor langsung hover kartu setelah swipe selesai | Tidak ada "cooldown hover" setelah swipe | `swipeMuteUntil = now + 450ms` + hapus `hover` saat `src === 'hand'` dalam mute window |
+
+### Verifikasi sesi ini (5 Aug 2026)
+
+- ✅ Rust unit test 5/5 (`pinch`, `palm`, `hysteresis`, `JSON invalid`, `empty hands`)
+- ✅ `cargo check` backend & WASM `wasm-pack build` bersih
+- ✅ `frontend/index.html` sintaks JS valid; `dist/index.html` sinkron ulang
+- ✅ **Headless smoke test (2 konteks Playwright):**
+  - Badge `Palm · FPS 1` (pipeline MediaPipe hidup dengan fake camera y4m)
+  - **MAX PX: 6202** (kerangka tangan lengkap 21 landmark + tulang tergambar — sebelumnya 0 px sebelum fix NaN)
+  - Tanpa error JS (`errors.length === 0`)
+  - **Swipe headless: SKIP** — `FPS 1` headless (tanpa GPU SwiftShader) tidak mencapai `>= 8` FPS yang dibutuhkan window 220ms + 4 sampel; ini **batas lingkungan**, bukan bug app (dokumentasi di TESTING.md 3.3)
+- ✅ **Screenshot verifikasi (`brain/projects/spatial-vision/skeleton-fixed.png`):** kerangka hijau
+  (tulang) + titik biru (landmark) terlihat jelas di layar, badge `Palm · FPS 1`
+  di kanan atas — bukti visual pipeline lengkap bekerja.
+
+### Catatan produksi
+
+- **Swipe harus diuji dengan kamera fisik** (headless tidak cukup cepat untuk
+  window 220ms/4 sample). Uji manual: ayun tangan cepat kiri/kanan di depan
+  kamera, pastikan halaman berpindah (`page` 0↔1) dan dot indikator berubah.
+- **Kerangka tangan lengkap sekarang terlihat** — bukan cuma lingkaran hijau
+  kursor. Ini menjawab keluhan user "hanya 1 jari terlihat dengan lingkaran hijau":
+  semua 21 landmark (ibu jari, telunjuk, tengah, manis, kelingking) + tulang
+  (hijau) sekarang digambar (`drawHand`).
+- Perbaikan `smoothHand` + `drawHand` juga mempengaruhi tampilan kursor —
+  smoothing 0.6 (kursor) + smoothing 0.45 (kerangka) membuat tampilan lebih
+  halus daripada sebelumnya.
+
 ## Baseline Performa (3 Aug 2026)
 
 **FPS terukur via kamera:** **58 FPS** (hampir cap 60Hz kamera).

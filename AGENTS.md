@@ -102,7 +102,8 @@ cargo test --manifest-path frontend/Cargo.toml
 
 | Tanggal | Commit | Isi |
 |---------|--------|-----|
-| 5 Aug 2026 | *(commit berikutnya)* | **Audit browser headless + 4 bugfix**: tambah hand_landmark_lite/full.tflite ke vendor (MediaPipe gagal init `TFL3`), `pointer-events:auto` pada `#dots`, dwell mouse via `mousemove` + `dwellSource`, `.catch` camera → "Kamera tidak tersedia (izin ditolak)". Smoke test Playwright 2 konteks 22/22 ✅ |
+| 5 Aug 2026 | *(commit berikutnya)* | **Fix NaN + swipe (lanjutan sesi `bear`)**: `smoothHand()` objek `{x,y,z}` (sebelumnya NaN karena campur array `[0]`); swipe rombak — ujung telunjuk [8], `|dx| > 0.22`, 220ms, kelurusan `> 0.45`, cooldown 500ms, arah `dx < 0 = next`; guard `Number.isFinite`, `swipeMuteUntil`, `.catch()` camera + hands.send; kerangka tangan lengkap (`drawHand`) terlihat di screenshot. Smoke test headless: kerangka 6202 px ✅ (sebelumnya 0 px), badge `Palm · FPS 1`, tanpa error JS |
+| 5 Aug 2026 | `6fde043` (sebelum ini) | Audit browser headless + 4 bugfix: tambah hand_landmark_lite/full.tflite ke vendor (MediaPipe gagal init `TFL3`), `pointer-events:auto` pada `#dots`, dwell mouse via `mousemove` + `dwellSource`, `.catch` camera → "Kamera tidak tersedia (izin ditolak)". Smoke test Playwright 2 konteks 22/22 ✅ |
 | 4 Aug 2026 | *(commit berikutnya)* | Tambah TESTING.md — panduan uji coba 3 level (otomatis, mouse, kamera nyata) + kalibrasi threshold |
 | 3 Aug 2026 | *(commit berikutnya)* | App modal + dwell-to-select (900ms): kartu → modal URL, palm = tutup, dual input mouse |
 | 3 Aug 2026 | `5bab585` | Uji fungsional navigasi dua arah (setPage via dots) |
@@ -118,7 +119,8 @@ cargo test --manifest-path frontend/Cargo.toml
 
 ## Next Steps (kandidat)
 
-- Kalibrasi threshold swipe (`dx > 0.35`, window 150ms) & pinch via uji nyata di kamera
-- Uji nyata dwell-to-select & palm-close dengan tangan asli (kamera)
-- Edge-case: dua tangan, tangan keluar frame saat pinch aktif (kursor melompat)
+- ✅ Threshold swipe dikalibrasi (`|dx| > 0.22`, 220ms, ujung telunjuk [8], rasio kelurusan `> 0.45`) + fix NaN/smoothHand (`smoothHand` objek `{x,y,z}`) — kerangka tangan lengkap sekarang terlihat (21 landmark + tulang hijau) — screenshot verifikasi ✅
+- Uji kamera nyata (swipe kiri/kanan → halaman pindah; kerangka lengkap; badge `Palm · FPS` normal) — butuh manusia + kamera fisik (headless FPS ~1 tidak cukup untuk deteksi swipe 220ms/4 sample)
+- Dwell-to-select & palm-close dengan tangan asli (kamera)
+- Edge-case: dua tangan, tangan keluar frame saat pinch aktif (kursor melompat); frame NaN → loop mati (sudah ada guard + `.catch()`; verifikasi lengkap di kamera)
 - Produksi: MediaPipe WASM task API (lebih kecil dari solution bundle 11MB) + HTTPS + deploy

@@ -13,7 +13,7 @@
 <main>
 <header>
 <h1>Spatial Vision</h1>
-<p class="hint">Arahkan tangan untuk menggerakkan kursor. Pinch = klik, palm = berhenti, swipe kiri/kanan = pindah halaman.</p>
+<p class="hint">Arahkan tangan untuk menggerakkan kursor (kerangka hijau = tracking). Pinch = klik, palm = berhenti, swipe kiri/kanan = pindah halaman.</p>
 </header>
 <section class="stage">
 <video id="camera" autoplay muted playsinline></video>
@@ -62,9 +62,21 @@ let prevPinching = false;        // rising-edge pinch = klik
 let cursor = { tx: .5, ty: .5, x: .5, y: .5, visible: false };
 let currentPage = 0;
 let lastSwipeT = 0;
-const wristHist = [];            // {t, x} — window 150ms utk deteksi swipe
+const swipeHist = [];            // {t, x} — window bergulir utk deteksi swipe
+let swipeMuteUntil = 0;          // setelah swipe, hover tangan ditahan sebentar (anti modal tak sengaja)
+let handSm = null;               // kerangka tangan ter-smooth (anti jitter visual)
 let flashMsg = '', flashUntil = 0;
 let fpsFrames = 0, fpsT0 = performance.now(), fps = 0;
+
+// Tulang tangan MediaPipe (21 landmark, 21 koneksi) — untuk menggambar kerangka.
+const HAND_BONES = [
+  [0,1],[1,2],[2,3],[3,4],          // ibu jari
+  [0,5],[5,6],[6,7],[7,8],          // telunjuk
+  [5,9],[9,10],[10,11],[11,12],     // tengah
+  [9,13],[13,14],[14,15],[15,16],   // manis
+  [13,17],[17,18],[18,19],[19,20],  // kelingking
+  [0,17]                            // telapak
+];
 
 // Dot indikator halaman
 pages.forEach((_, i) => {
@@ -105,6 +117,9 @@ function setPage(i) {
 setPage(0);
 
 function elementAtCursor() {
+  // MediaPipe kadang mengeluarkan landmark non-finite (NaN) saat gerak cepat —
+  // elementFromPoint(NaN) melempar dan bisa mematikan loop kamera. Guard dulu.
+  if (!Number.isFinite(cursor.x) || !Number.isFinite(cursor.y)) return null;
   const r = stage.getBoundingClientRect();
   return document.elementFromPoint(
     r.left + cursor.x * r.width,
@@ -132,6 +147,13 @@ function activateCard(el) {
 }
 
 function updateHover(hov, src = 'hand') {
+  // Setelah swipe, hover tangan ditahan dulu — kursor yang mendarat di kartu
+  // tidak boleh membuka modal tak sengaja. Mouse tidak terpengaruh.
+  if (src === 'hand' && performance.now() < swipeMuteUntil) {
+    document.querySelectorAll('.card.hover').forEach(c => c.classList.remove('hover'));
+    dwellCard = null; clearTimeout(dwellTimer);
+    return;
+  }
   document.querySelectorAll('.card.hover').forEach(c => c.classList.remove('hover'));
   const ok = hov && hov.classList.contains('card') && modal.hidden;
   if (!ok) { dwellCard = null; clearTimeout(dwellTimer); return; }
@@ -146,13 +168,56 @@ function updateHover(hov, src = 'hand') {
   }
 }
 
-function draw() {
+// Smoothing kerangka: lerp per-landmark agar tampilan tidak bergetar (jitter
+// model lite). Landmark MediaPipe berupa objek {x,y,z} — smoothing per properti.
+// Kursor tetap pakai smoothing sendiri di onResults.
+function smoothHand(raw) {
+  if (!handSm) { handSm = raw; return raw; }
+  const k = 0.45;
+  const out = raw.map((p, i) => {
+    const q = handSm[i];
+    return {
+      x: q.x + (p.x - q.x) * k,
+      y: q.y + (p.y - q.y) * k,
+      z: q.z + (p.z - q.z) * k
+    };
+  });
+  handSm = out;
+  return out;
+}
+
+// Gambar kerangka tangan (21 landmark + tulang) — semua jari terlihat, bukan
+// cuma lingkaran kursor. Layar di-mirror (scaleX(-1)) → x dibalik.
+function drawHand(lm) {
+  const r = canvas.getBoundingClientRect();
+  const pt = i => ({ x: (1 - lm[i].x) * r.width, y: lm[i].y * r.height });
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(0,255,136,.4)';
+  ctx.beginPath();
+  for (const [a, b] of HAND_BONES) {
+    const p = pt(a), q = pt(b);
+    ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(141,187,255,.85)';
+  for (let i = 0; i < 21; i++) {
+    const p = pt(i);
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const tip = pt(8); // ujung telunjuk — titik kendali kursor
+  ctx.beginPath(); ctx.arc(tip.x, tip.y, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#00ff88'; ctx.fill();
+}
+
+function draw(handLm) {
   const dpr = window.devicePixelRatio || 1;
   const r = canvas.getBoundingClientRect();
   const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, r.width, r.height);
+  if (handLm) drawHand(handLm);
   if (!cursor.visible) return;
   const x = cursor.x * r.width, y = cursor.y * r.height;
   ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI * 2);
@@ -189,31 +254,52 @@ if (typeof Hands === 'undefined') {
     if (!r.multiHandLandmarks || r.multiHandLandmarks.length === 0) {
       wasPinching = false;
       cursor.visible = false;
+      handSm = null;
       if (dwellSource === 'hand') { dwellCard = null; clearTimeout(dwellTimer); }
       stats.textContent = `Waiting · FPS ${fps}`;
       stats.style.color = '#8dbbff';
-      draw();
+      draw(null);
       return;
     }
 
     const hand = r.multiHandLandmarks[0];
-    // Kursor dari ujung telunjuk [8]. Layar di-mirror (scaleX(-1)) → x dibalik.
-    cursor.tx = 1 - hand[8].x;
-    cursor.ty = hand[8].y;
-    cursor.visible = true;
-    cursor.x += (cursor.tx - cursor.x) * 0.5; // smoothing
-    cursor.y += (cursor.ty - cursor.y) * 0.5;
+    // Landmark non-finite (MediaPipe output NaN saat gerak cepat/awal init)
+    // meracuni smoothing kursor → elementFromPoint melempar → loop kamera mati.
+    // Frame tak valid di-skip: state terakhir dipertahankan, tanpa flicker.
+    if (!hand || hand.length < 21 ||
+        !hand.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) {
+      return;
+    }
+    const lm = smoothHand(hand); // kerangka ter-smooth (gambar + swipe)
 
-    // Swipe: window 150ms pada wrist (display x = 1 - raw x).
+    // Kursor dari ujung telunjuk [8]. Layar di-mirror (scaleX(-1)) → x dibalik.
+    cursor.tx = 1 - lm[8].x;
+    cursor.ty = lm[8].y;
+    cursor.visible = true;
+    cursor.x += (cursor.tx - cursor.x) * 0.6; // smoothing kursor (snappy)
+    cursor.y += (cursor.ty - cursor.y) * 0.6;
+
+    // Swipe: window 220ms pada ujung telunjuk (display x). Threshold 0.22 +
+    // rasio kelurusan > 0.45 = ayunan dominan satu arah, tahan terhadap jitter.
     const now = performance.now();
-    wristHist.push({ t: now, x: 1 - hand[0].x });
-    while (wristHist.length && now - wristHist[0].t > 150) wristHist.shift();
-    if (wristHist.length >= 3) {
-      const first = wristHist[0], last = wristHist[wristHist.length - 1];
+    swipeHist.push({ t: now, x: 1 - lm[8].x });
+    while (swipeHist.length && now - swipeHist[0].t > 220) swipeHist.shift();
+    if (swipeHist.length >= 4) {
+      const first = swipeHist[0], last = swipeHist[swipeHist.length - 1];
       const dx = last.x - first.x;
-      if (last.t - first.t > 60 && Math.abs(dx) > 0.35 && now - lastSwipeT > 600) {
+      let path = 0;
+      for (let i = 1; i < swipeHist.length; i++) path += Math.abs(swipeHist[i].x - swipeHist[i-1].x);
+      const straight = path > 0 ? Math.abs(dx) / path : 0;
+      if (last.t - first.t > 90 && Math.abs(dx) > 0.22 && straight > 0.45
+          && now - lastSwipeT > 500) {
         lastSwipeT = now;
-        setPage(currentPage + (dx > 0 ? 1 : -1));
+        clearTimeout(dwellTimer); dwellCard = null;
+        swipeMuteUntil = now + 450; // kursor tak boleh langsung dwell di kartu
+        // Konvensi layar sentuh (TESTING.md): swipe kiri di layar = halaman
+        // berikutnya, swipe kanan = kembali. Layar di-mirror → kiri layar = dx<0.
+        setPage(currentPage + (dx < 0 ? 1 : -1));
+        flashMsg = dx < 0 ? `➡️ Halaman ${currentPage + 1}` : `⬅️ Halaman ${currentPage + 1}`;
+        flashUntil = now + 700;
       }
     }
 
@@ -241,11 +327,15 @@ if (typeof Hands === 'undefined') {
     // Hover highlight + dwell-to-select pada kartu di bawah kursor
     updateHover(elementAtCursor());
 
-    draw();
+    draw(lm);
   });
 
   const camera = new Camera(document.getElementById('camera'), {
-    onFrame: async () => await hands.send({ image: document.getElementById('camera') }),
+    // Satu frame yang gagal tidak boleh mematikan loop — catch & lanjut.
+    onFrame: async () => {
+      try { await hands.send({ image: document.getElementById('camera') }); }
+      catch (e) { console.warn('Frame kamera dilewati:', e.message); }
+    },
     width: 640, height: 360
   });
   camera.start().catch(() => {
