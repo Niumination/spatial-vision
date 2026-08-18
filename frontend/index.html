@@ -5,9 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Spatial Vision - Hand Tracking & Spatial UI</title>
 <link rel="stylesheet" href="style.css">
-<!-- Self-host MediaPipe (offline, tanpa CDN) -->
-<script src="vendor/mediapipe/hands.js"></script>
-<script src="vendor/mediapipe/camera_utils.js"></script>
+<!-- Self-host MediaPipe Tasks Vision (offline, tanpa CDN). Bundle ESM di-load
+     lewat dynamic import di body script agar DOM siap lebih dulu. -->
 </head>
 <body>
 <main>
@@ -235,23 +234,42 @@ function countFps() {
   if (now - fpsT0 >= 1000) { fps = fpsFrames; fpsFrames = 0; fpsT0 = now; }
 }
 
-if (typeof Hands === 'undefined') {
+let handLandmarker = null;
+try {
+  const { FilesetResolver, HandLandmarker } = await import('./vendor/mediapipe-tasks/vision_bundle.mjs');
+  const vision = await FilesetResolver.forVisionTasks('vendor/mediapipe-tasks/wasm');
+  const base = { modelAssetPath: 'vendor/mediapipe-tasks/hand_landmarker.task' };
+  const opts = {
+    runningMode: 'VIDEO',
+    numHands: 1,
+    minHandDetectionConfidence: 0.5,
+    minHandPresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  };
+  try {
+    // GPU delegate — inference jauh lebih cepat; fallback CPU jika WebGL2 tidak ada.
+    handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: { ...base, delegate: 'GPU' }, ...opts });
+  } catch (e) {
+    console.warn('GPU delegate gagal — fallback CPU:', e);
+    handLandmarker = await HandLandmarker.createFromOptions(vision, { baseOptions: base, ...opts });
+  }
+} catch (e) {
   stats.textContent = 'Error: MediaPipe gagal dimuat (self-host)';
   stats.style.color = '#ff5566';
-} else {
-  const hands = new Hands({ locateFile: f => 'vendor/mediapipe/' + f });
-  hands.setOptions({
-    maxNumHands: 1,
-    modelComplexity: 0, // lite — cukup akurat untuk pinch, ~3x lebih cepat dari full
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-  hands.onResults(r => {
+  console.error('Tasks API init gagal:', e);
+}
+
+if (handLandmarker) {
+  const video = document.getElementById('camera');
+  let lastVideoTime = -1;
+
+  function processResults(results) {
+    countFps();
     countFps();
     // Reset saat tidak ada tangan — kursor hilang, status tidak lengket.
     // Dwell mouse (sumber 'mouse') TIDAK dibatalkan — dual input: kamera tanpa
     // tangan tidak boleh mengganggu interaksi mouse.
-    if (!r.multiHandLandmarks || r.multiHandLandmarks.length === 0) {
+    if (!results.landmarks || results.landmarks.length === 0) {
       wasPinching = false;
       cursor.visible = false;
       handSm = null;
@@ -262,7 +280,7 @@ if (typeof Hands === 'undefined') {
       return;
     }
 
-    const hand = r.multiHandLandmarks[0];
+    const hand = results.landmarks[0];
     // Landmark non-finite (MediaPipe output NaN saat gerak cepat/awal init)
     // meracuni smoothing kursor → elementFromPoint melempar → loop kamera mati.
     // Frame tak valid di-skip: state terakhir dipertahankan, tanpa flicker.
@@ -303,7 +321,7 @@ if (typeof Hands === 'undefined') {
       }
     }
 
-    const landmarks = r.multiHandLandmarks.map(h => h.map(l => [l.x, l.y, l.z]));
+    const landmarks = results.landmarks.map(h => h.map(l => [l.x, l.y, l.z]));
     try {
       const s = JSON.parse(detect_pinch(JSON.stringify(landmarks), wasPinching));
       prevPinching = wasPinching;
@@ -328,21 +346,38 @@ if (typeof Hands === 'undefined') {
     updateHover(elementAtCursor());
 
     draw(lm);
-  });
+    updateHover(elementAtCursor());
+    draw(lm);
+  }
 
-  const camera = new Camera(document.getElementById('camera'), {
-    // Satu frame yang gagal tidak boleh mematikan loop — catch & lanjut.
-    onFrame: async () => {
-      try { await hands.send({ image: document.getElementById('camera') }); }
-      catch (e) { console.warn('Frame kamera dilewati:', e.message); }
-    },
-    width: 640, height: 360
-  });
-  camera.start().catch(() => {
-    // Kamera ditolak/tidak ada: interaksi mouse tetap berfungsi (dual input).
-    stats.textContent = 'Kamera tidak tersedia (izin ditolak)';
-    stats.style.color = '#ffb020';
-  });
+  // Video loop: detectForVideo dipanggil sekali per frame video baru (rAF),
+  // dengan timestamp monoton naik (wajib untuk runningMode VIDEO).
+  function loop(now) {
+    if (video.currentTime !== lastVideoTime) {
+      lastVideoTime = video.currentTime;
+      try { processResults(handLandmarker.detectForVideo(video, now)); }
+      catch (e) { console.warn('Frame dilewati:', e.message); }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  async function startCamera() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 360 }, audio: false
+      });
+      video.srcObject = stream;
+      await video.play();
+      stats.textContent = 'Waiting · FPS 0';
+      stats.style.color = '#8dbbff';
+      requestAnimationFrame(loop);
+    } catch (e) {
+      // Kamera ditolak/tidak ada: interaksi mouse tetap berfungsi (dual input).
+      stats.textContent = 'Kamera tidak tersedia (izin ditolak)';
+      stats.style.color = '#ffb020';
+    }
+  }
+  startCamera();
 }
 </script>
 </body>
