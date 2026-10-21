@@ -27,7 +27,7 @@ Buka `http://localhost:3000` (kamera hanya berjalan di HTTPS atau localhost).
 |----------|------|-------|
 | Backend | `backend/src/main.rs` | Axum — serve `frontend/dist/` di port 3000 |
 | Frontend | `frontend/src/lib.rs` | `detect_pinch` + `parse_pinch` + 5 unit test |
-| MediaPipe | `frontend/vendor/mediapipe/` | Pipeline landmark — self-host offline (11MB, di-track) |
+| MediaPipe | `frontend/vendor/mediapipe-tasks/` | Pipeline landmark — self-host offline (11MB, di-track) |
 
 Format input `detect_pinch(landmarks_json, was_pinching)` — array tangan dari
 `multiHandLandmarks` — `[[[x,y,z]x21], [[x,y,z]x21]]`, plus state pinch frame
@@ -40,16 +40,19 @@ sebelumnya (untuk hysteresis di Rust). Output JSON:
   tidak sedang pinch.
 - **FPS counter:** tampil di badge status, rolling 1 detik.
 
-## Launcher & Interaksi (3 Aug 2026)
+## Launcher & Interaksi
 
 | Fitur | Cara kerja |
 |-------|-----------|
-| **Kursor + klik** | Kursor dari ujung telunjuk [8] (x di-mirror), smoothing 0.5; rising-edge pinch = klik pada kartu |
-| **Swipe navigasi** | Window 150ms pada wrist [0], `|dx| > 0.35`, cooldown 600ms → pindah halaman + dot indikator |
+| **Kursor + klik** | Kursor dari ujung telunjuk [8] (x di-mirror), smoothing 0.6; rising-edge pinch = klik pada kartu |
+| **Swipe navigasi** | Window 220ms pada ujung telunjuk [8], `|dx| > 0.22`, rasio kelurusan `> 0.45`, cooldown 500ms → pindah halaman + dot indikator |
 | **App modal** | Klik kartu → modal dengan judul, deskripsi, tombol "Buka <app>" (link URL) + "Tutup" |
 | **Dwell-to-select** | Tahan kursor di kartu 900ms = pilih (progress bar hijau via CSS) — alternatif klik |
 | **Palm = tutup** | Gestur telapak terbuka menutup modal yang terbuka |
 | **Dual input** | Mouse juga bisa klik kartu langsung (memudahkan testing tanpa kamera) |
+| **Keyboard** | `←` / `→` pindah halaman, `Enter` klik kartu hover, `Esc` tutup modal |
+| **Sentuh (mobile)** | Swipe kiri/kanan di area `.stage` (threshold 40px) = pindah halaman |
+| **Loading screen** | Overlay + spinner saat WASM + MediaPipe inisialisasi, hilang otomatis (juga saat MediaPipe gagal dimuat) |
 
 ## Testing
 ```bash
@@ -58,7 +61,10 @@ cargo test --manifest-path frontend/Cargo.toml
 5 unit test: pinch dekat, tangan terbuka (palm), hysteresis di deadband, JSON
 invalid, tanpa tangan.
 
+CI: GitHub Actions (`.github/workflows/ci.yml`) — build Rust backend, build WASM
+frontend, `cargo test`.
+
 ## Catatan
 - Gesture dihitung murni di sisi klien; kamera tidak pernah dikirim ke backend.
-- MediaPipe di-self-host di `frontend/vendor/mediapipe/` (11MB) — berjalan offline, tanpa CDN.
+- MediaPipe di-self-host di `frontend/vendor/mediapipe-tasks/` (11MB) — berjalan offline, tanpa CDN.
 - Untuk produksi: pindah MediaPipe ke WASM task API (lebih kecil) + HTTPS + deploy.
