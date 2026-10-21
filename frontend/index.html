@@ -9,10 +9,14 @@
      lewat dynamic import di body script agar DOM siap lebih dulu. -->
 </head>
 <body>
+<div id="loader">
+  <div class="loader-ring"></div>
+  <p>Memuat Spatial Vision…</p>
+</div>
 <main>
 <header>
 <h1>Spatial Vision</h1>
-<p class="hint">Arahkan tangan untuk menggerakkan kursor (kerangka hijau = tracking). Pinch = klik, palm = berhenti, swipe kiri/kanan = pindah halaman.</p>
+<p class="hint">Arahkan tangan untuk menggerakkan kursor (kerangka hijau = tracking). Pinch = klik, palm = berhenti, swipe kiri/kanan = pindah halaman. keyboard: ← → navigasi, Enter klik, Esc tutup.</p>
 </header>
 <section class="stage">
 <video id="camera" autoplay muted playsinline></video>
@@ -43,12 +47,13 @@
   </div>
 </div>
 </section>
-<div id="stats" class="stats">Status: Menunggu kamera...</div>
+<div id="stats" class="stats">Status: Memuat…</div>
 </main>
 <script type="module">
 import init, { detect_pinch } from './pkg/spatial_vision_frontend.js';
 init();
 
+const loader = document.getElementById('loader');
 const stats = document.getElementById('stats');
 const canvas = document.getElementById('scene');
 const ctx = canvas.getContext('2d');
@@ -107,6 +112,40 @@ modalClose.addEventListener('click', closeApp);
 document.addEventListener('mousemove', e => {
   updateHover(document.elementFromPoint(e.clientX, e.clientY), 'mouse');
 });
+
+// Keyboard navigation: ArrowLeft/Right = swipe halaman, Enter = klik kartu hover,
+// Escape = tutup modal. Hanya aktif saat modal tertutup.
+document.addEventListener('keydown', e => {
+  if (!modal.hidden) {
+    if (e.key === 'Escape') { e.preventDefault(); closeApp(); }
+    return;
+  }
+  if (e.key === 'ArrowRight') { e.preventDefault(); setPage(currentPage - 1); flashMsg = `⬅️ Halaman ${currentPage + 1}`; flashUntil = performance.now() + 700; }
+  else if (e.key === 'ArrowLeft') { e.preventDefault(); setPage(currentPage + 1); flashMsg = `➡️ Halaman ${currentPage + 1}`; flashUntil = performance.now() + 700; }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    const hov = document.querySelector('.card.hover');
+    if (hov) activateCard(hov);
+  }
+});
+
+// Touch gesture: touchstart/touchmove pada .stage untuk swipe halaman (mobile).
+let touchStartX = 0;
+stage.addEventListener('touchstart', e => {
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+stage.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 40 && performance.now() > swipeMuteUntil) {
+    setPage(currentPage + (dx < 0 ? 1 : -1));
+    flashMsg = dx < 0 ? `➡️ Halaman ${currentPage + 1}` : `⬅️ Halaman ${currentPage + 1}`;
+    flashUntil = performance.now() + 700;
+  }
+}, { passive: true });
+
+// Tap pada stage (bukan kartu) = tidak lakukan apa-apa; tap pada kartu sudah
+// ditangani listener .card.addEventListener('click', ...) yang juga menangkap touch.
+// Touch pada dot navigasi: dotsWrap punya pointer-events:auto, klik normal.
 
 function setPage(i) {
   currentPage = Math.max(0, Math.min(pages.length - 1, i));
@@ -262,9 +301,10 @@ try {
 if (handLandmarker) {
   const video = document.getElementById('camera');
   let lastVideoTime = -1;
+  // Sembunyikan loading screen setelah MediaPipe sukses inisialisasi.
+  if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); }
 
   function processResults(results) {
-    countFps();
     countFps();
     // Reset saat tidak ada tangan — kursor hilang, status tidak lengket.
     // Dwell mouse (sumber 'mouse') TIDAK dibatalkan — dual input: kamera tanpa
@@ -342,10 +382,7 @@ if (handLandmarker) {
       if (s.gesture === 'palm' && !modal.hidden) closeApp();
     } catch (e) {}
 
-    // Hover highlight + dwell-to-select pada kartu di bawah kursor
-    updateHover(elementAtCursor());
-
-    draw(lm);
+    // Hover highlight + dwell-to-select pada kartu di bawah kursor (sekali saja).
     updateHover(elementAtCursor());
     draw(lm);
   }
@@ -378,6 +415,9 @@ if (handLandmarker) {
     }
   }
   startCamera();
+} else {
+  // MediaPipe gagal dimuat — sembunyikan loader, biarkan user lihat error badge.
+  if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); }
 }
 </script>
 </body>
