@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          wasm-pack build --target web --out-dir dist/pkg
+          cp index.html style.css dist/
+
+      - name: Build backend
+        run: cargo build --manifest-path backend/Cargo.toml
+
+      - name: Run tests
+        run: cargo test --manifest-path frontend/Cargo.toml
